@@ -25,6 +25,15 @@ const addTodo = async (task: string) => {
         isEditing: false
     };
 
+    /* example json add todo
+    {
+        "id": "0f4a2d7b-1f59-4d2f-8b2a-6a2c9d2b9d31",
+        "task": "Comprar leche",
+        "completed": false,
+        "isEditing": false
+    }
+    */
+
     setTodos(prev => [...prev, new_todo])
 
     try {
@@ -73,6 +82,13 @@ const editTodo = (id:string) => {
 const editTask = async(task:string, id:string) => {
 
     const tempTodo = todos;
+
+    /* example editTask
+    PUT /updateTodo/0f4a2d7b
+    {
+      "task": "Shop the book of the power ring of towers"
+    }
+    */
 
     setTodos(todos.map(todo => todo.id == id 
         ? {...todo, task, isEditing: !todo.isEditing}
