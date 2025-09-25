@@ -1,28 +1,33 @@
 import React, {useState} from "react";
 import type { Todo as TodoType } from './TodoWrapper'
 
-
-type TodoFormProps = { 
-    task: TodoType; 
-    editTodo: (value:string ,id: string) => void; 
+type Props = {
+  todo: TodoType;
+  onSave: (newTitle: string) => void; 
 };
 
+export const TodoEditForm = ({ todo, onSave }: Props) => {
+  const [value, setValue] = useState(todo.title);
 
-export const TodoEditForm = ( {task, editTodo}: TodoFormProps ) => {
-    const [value, setValue] = useState(task.task)
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); 
+    const t = value.trim(); 
+    if (!t) return; 
+    onSave(t);  
+    setValue("")
+  };
 
-    // React.FormEvent<HTMLFormElement> (eventos de formulario)
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault(); 
-        editTodo(value, task.id);
-        setValue("");
-    }
-    return(
-        <form className="TodoForm" onSubmit={handleSubmit}>
-            <input type="text" className="todo-input" placeholder="Update task"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}/>
-            <button type="submit" className="todo-btn">Update Task</button>
-        </form>
-    )
-}
+  return (
+    <form className="TodoForm" onSubmit={handleSubmit}>
+      <input
+        type="text"
+        className="todo-input"
+        placeholder="Update title"
+        value={value}
+        onChange={(e) => setValue(e.target.value)} 
+        autoFocus 
+      />
+      <button type="submit" className="todo-btn">Update Task</button>
+    </form>
+  );
+};

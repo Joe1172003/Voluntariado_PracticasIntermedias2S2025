@@ -1,127 +1,136 @@
-import React, {useState} from "react";
+import {useEffect, useState} from "react";
 import { TodoForm } from "./TodoForm";
-import {v4 as uuidv4} from 'uuid'
 import { Todo } from "./Todo";
 import { TodoEditForm } from "./TodoEditForm";
 
-const API_BASE: string = 'http://localhost:3000';
-uuidv4();
-
 export type Todo = {
-    id: string,
-    task: string,
-    completed: boolean,
-    isEditing: boolean
+    id: number,
+    title: string;
+    done: boolean;
+    created_at: string;
+    updated_at: string;
+    isEditing?: boolean;
 }
 
 export const TodoWrapper = () => {
-    const [todos, setTodos] = useState<Todo[]>([])
+const [todos, setTodos] = useState<Todo[]>([])
+const [loading, setLoading] = useState(false);
 
-const addTodo = async (task: string) => {
-    const new_todo: Todo = {
-        id: uuidv4(),
-        task: task,
-        completed: false,
-        isEditing: false
-    };
+useEffect(() => {
+    (async () => {
+       try {
+            setLoading(true)
+            const res = await fetch(`/api/todos`);
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            // obtener la data 
+            const data: Todo[] = await res.json();
+            setTodos(data.map(todo => ({...todo, isEditing:false})));
+        } catch (err) {
+            console.error("GET /todos error:", err);    
+        }finally{
+            setLoading(false);  
+        } 
+    })();
+}, []);
 
-    /* example json add todo
-    {
-        "id": "0f4a2d7b-1f59-4d2f-8b2a-6a2c9d2b9d31",
-        "task": "Comprar leche",
-        "completed": false,
-        "isEditing": false
-    }
-    */
-
-    setTodos(prev => [...prev, new_todo])
-
-    try {
-        const res = await fetch(`${API_BASE}/addTodo`, {
+const addTodo = async (title: string) => {    
+    try{
+        const res = await fetch(`/api/todos`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(new_todo)
+            body: JSON.stringify({ title: title })
         });
-
-        // error en la respuesta
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const created: Todo = await res.json();
+        setTodos(prev => [...prev, {...created, isEditing:false}]);
+        console.log(todos)
     } catch (err) {
-        setTodos(prev => prev.filter(todo => todo.id !== new_todo.id));
-        console.error(`Error Add ${err}, save todo....!`);
+        console.error("POST /todos error:", err);
     }
 };
 
-const toggleCompleted = (id: string) => {
-  setTodos(prev =>
-    prev.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo)
-  );
-}; 
-
-const deleteTodo = async(id:string) => {
-    setTodos(todos.filter(todo => todo.id !== id))
-
+const toggleDone = async (id:number) => {
+    const current = todos.find(todo => todo.id === id);
+    if(!current) return;
     try {
-        const res = await fetch(`${API_BASE}/deleteTodo/${id}`, {
-            method: "DELETE"
-        });
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch (err) {
-        setTodos(prev => prev)
-        console.error(`Error Delete ${err} al eliminar el todo: ${id}`)
-    }
-}
-
-
-const editTodo = (id:string) => {
-    setTodos(todos.map(todo => todo.id === id ? 
-        {...todo, isEditing: !todo.isEditing }
-        : todo 
-    ))
-}
-
-const editTask = async(task:string, id:string) => {
-
-    const tempTodo = todos;
-
-    /* example editTask
-    PUT /updateTodo/0f4a2d7b
-    {
-      "task": "Shop the book of the power ring of towers"
-    }
-    */
-
-    setTodos(todos.map(todo => todo.id == id 
-        ? {...todo, task, isEditing: !todo.isEditing}
-        : todo))
-
-    try{
-        const res = await fetch(`${API_BASE}/updateTodo/${id}`, {
-            method: "PUT",
+        const res = await fetch(`/api/todos/${id}/done`, {
+            method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ task: task})
+            body: JSON.stringify({done: !current.done})
         });
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    }catch(err){
-        console.error(`Error Update ${err} al modificar el todo: ${id}`);
-        setTodos(tempTodo);
+        const updated: Todo = await res.json();
+        setTodos(prev => prev.map(todo => (todo.id === id ? 
+            {...updated, isEditing: todo.isEditing ?? false} 
+            : todo
+        )))
+    } catch (err) {
+        console.error(`PATCH /todos/${id} error:`, err)
     }
 }
 
-    return(
+const editTodo = async (id:number, title:string) => {
+    try {
+        const res = await fetch(`/api/todos/${id}`, {
+            method: 'PUT',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: title })
+        });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const updated: Todo = await res.json();
+        setTodos(prev => prev.map(todoUpdate => (
+            todoUpdate.id === id ? {...updated, isEditing: false} : todoUpdate
+        )));
+    } catch (err) {
+    console.error(`PATCH /todos/${id} error:`, err);
+    }
+};
+
+const deleteTodo = async (id:number) => {
+    try {
+        const res = await fetch(`/api/todos/${id}`, {
+            method: 'DELETE'
+        });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        setTodos(prev => prev.filter(todo => todo.id !== id));
+    } catch (err) {
+        console.error(`DELETE /todos/${id} error:`, err)
+    }
+}
+
+const toggleEditing  = (id: number) => {
+    setTodos(prev => prev.map(todo => (todo.id === id 
+        ? {...todo, isEditing: !todo.isEditing} 
+        : todo
+    )));
+}
+
+
+    return (
         <div className="TodoWrapper">
             <h1>My Todo List</h1>
-            <TodoForm addTodo={addTodo}/>
-            {todos.map((todo) => (
-                todo.isEditing 
-                ? (<TodoEditForm key={todo.id} editTodo={editTask}
-                task={todo}/>)
-                : (
-                <Todo task={todo} key={todo.id}
-                toggleCompleted={toggleCompleted}
-                deleteTodo={deleteTodo}
-                editTodo={editTodo}/>
+            <TodoForm addTodo={addTodo} />
+            {loading ? (
+                <p>Loading...</p>
+            ): (
+                todos.map(todo => todo.isEditing 
+                    ?(
+                        <TodoEditForm 
+                        key={todo.id}
+                        todo={todo}
+                        onSave={(newTitle) => editTodo(todo.id, newTitle)}
+                        />
+                    )
+                    :(
+                        <Todo 
+                        key={todo.id}
+                        todo={todo}
+                        onToggleDone={() => toggleDone(todo.id)}
+                        onDelete={() => deleteTodo(todo.id)}
+                        onToggleEditing={() => toggleEditing(todo.id)}/>
+                    )
                 )
-            ))}
+            )}
         </div>
-    )
+    );
 }
